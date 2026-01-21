@@ -1,0 +1,84 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+library(tidyverse)
+library(plotly)
+library(lubridate)
+
+Qdat <- read_csv("mcd_beast_Q.csv")
+```
+
+```{r}
+cbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+Qdat %>%filter(datetime > mdy("08-01-20") & datetime < mdy("09-01-20"))%>%
+  ggplot()+
+  geom_line(aes(datetime, Qmmd_mcd, color = "South")) +
+  geom_line(aes(datetime, Qmmd_beast, color = "North"))+
+  theme_classic()+
+  #scale_y_log10()+
+  scale_colour_manual(values = cbPalette, name = "Streams")+
+  ylab("Discharge (mm/day)")+
+  xlab(element_blank())
+  
+Qdat %>%filter(datetime > mdy("10-25-20") & datetime < mdy("12-01-20"))%>%
+  ggplot()+
+  geom_line(aes(datetime, Qmmd_mcd, color = "South")) +
+  geom_line(aes(datetime, Qmmd_beast, color = "North"))+
+  theme_classic()+
+  #scale_y_log10()+
+  scale_colour_manual(values = cbPalette, name = "Streams")+
+  ylab("Discharge (mm/day)")+
+  xlab(element_blank())
+```
+```{r}
+compare <- Qdat %>%
+  ggplot()+
+  geom_line(aes(datetime, Qmmd_mcd, color = "South")) +
+  geom_line(aes(datetime, Qmmd_beast, color = "North"))+
+  theme_classic()+
+  #scale_y_log10()+
+  scale_colour_manual(values = cbPalette, name = "Streams")+
+  ylab("Discharge (mm/day)")+
+  xlab(element_blank())
+  
+  
+
+compare
+```
+```{r}
+Qdat <- Qdat %>%
+  mutate(Q_mcd_norm = (Qmmd_mcd - min(Qmmd_mcd)) / (max(Qmmd_mcd) - min(Qmmd_mcd)),
+         Q_beast_norm = (Qmmd_beast- min(Qmmd_beast)) / (max(Qmmd_beast) - min(Qmmd_beast)))
+
+Qdat %>%
+  filter(datetime > mdy("08-01-20") & datetime < mdy("09-01-20"))%>%
+  ggplot()+
+  geom_line(aes(datetime, Q_mcd_norm, color = "South")) +
+  geom_line(aes(datetime, Q_beast_norm, color = "North"))+
+  theme_classic()+
+  #scale_y_log10()+
+  scale_colour_manual(values = cbPalette, name = "Streams")+
+  ylab("Normalized Discharge")+
+  xlab(element_blank())
+  
+Qdat %>%
+  filter(datetime > mdy("11-01-20") & datetime < mdy("12-01-20"))%>%
+  ggplot()+
+  geom_line(aes(datetime, Q_mcd_norm, color = "South")) +
+  geom_line(aes(datetime, Q_beast_norm, color = "North"))+
+  theme_classic()+
+  #scale_y_log10()+
+  scale_colour_manual(values = cbPalette, name = "Streams")+
+  ylab("Normalized Discharge")+
+  xlab(element_blank())
+  
+
+
+```
+

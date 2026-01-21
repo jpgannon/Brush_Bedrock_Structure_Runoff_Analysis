@@ -1,0 +1,28 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Compare HB GG and Brush
+
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+```{r}
+GG <- read_csv("GribbleGapExample.csv")
+HB <- read_csv("WS3HBEF_Example.csv")
+BM <- read_csv("MDH_Beast_AllChem_Apr22.csv")
+```
+
+```{r}
+ggplot()+
+  geom_smooth(data = BM, 
+    mapping = aes(x = Si_ppb / 1000, y = Ca_ppb / 1000, color = "BM"), method = "lm")+
+  geom_smooth(data = HB, 
+    mapping = aes(x = SiO2_mgL, y = Ca_mgL, color = "HB"), method = "lm")+
+  geom_smooth(data = GG, 
+    mapping = aes(x = Si_E3, y = Ca_E3, color = "GG"), method = "lm")
+```
+

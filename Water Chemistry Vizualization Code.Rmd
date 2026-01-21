@@ -1,0 +1,104 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(viridis)
+library(ggtern)
+cbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+```{r}
+data <- read_csv("MDH_Beast_AllChem_Apr22.csv") %>%
+  filter(!Site %in% c("MSL", "MSTR1", "MSU", "RT0"))
+
+elements <- read_csv("Periodic Table of Elements.csv") %>% select(Symbol, AtomicMass)
+```
+
+```{r}
+data_long <- data %>% select(Date,Site, Reach, Dist, Na_ppb, Mg_ppb, 
+                             Al_ppb, Si_ppb, K_ppb, Ca_ppb, Fe_ppb,
+                             S_ppm_as_SO4) %>%
+  pivot_longer(Na_ppb:S_ppm_as_SO4) %>%
+  mutate(Element = substr(name, 1, nchar(name) - 4)) %>%
+  left_join(elements, by = c("Element" = "Symbol")) %>%
+  mutate(mol_L = (value / 1000000) / AtomicMass)
+
+data_wide_molL <- data_long %>% select(Site, Reach, Dist, Element, mol_L) %>%
+  pivot_wider(values_from = mol_L, names_from = Element)
+
+data_long %>% 
+  ggplot(aes(x = Reach, y = value, fill = Date))+
+  geom_boxplot()+
+  facet_wrap(vars(name), scale = "free")+
+  theme_classic()
+```
+```{r}
+data_long %>% filter(name %in% c("Ca_ppb","K_ppb","Mg_ppb","Si_ppb","Na_ppb" ))%>%
+  ggplot(aes(x = Dist, y = value, color = Reach, pch = Date))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(vars(name), scale = "free")+
+  scale_colour_manual(values = cbPalette, name = "Streams")+
+  theme_classic()
+```
+```{r}
+lowbf <- data_long %>% filter(Date == "9/10/21")
+highbf <- data_long %>% filter(Date == "3/8/22")
+
+flows_as_cols <- left_join(highbf, lowbf, by = c("Reach","Dist", "name"), suffix = c("high", "low"))
+
+flows_as_cols %>% 
+  ggplot(aes(x = Dist, y = valuehigh - valuelow, color = Reach))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(vars(name), scale = "free")+
+  theme_classic()
+
+```
+
+```{r}
+data %>%
+  ggplot(aes(x = Ca_ppb, y = Si_ppb, color = Reach))+#, size = Dist, pch = Date))+
+  geom_point()+
+  theme_classic()
+```
+
+```{r}
+data %>% ggtern(aes(x = Ca_ppb, y = Mg_ppb, z = Na_ppb + K_ppb, 
+                    color = Reach))+
+  geom_point()+
+  theme_minimal()
+```
+
+```{r}
+data_wide_molL %>%
+  ggplot(aes(x = Dist, y = Na + Mg + Ca + Si , color = Reach))+
+  geom_point()+
+  theme_classic()
+```
+```{r}
+
+
+data_long %>% filter(name == "Ca_ppb") %>%
+  ggplot(aes(x = Dist, y = Reach, fill = value))+
+    geom_line(color = "grey")+
+  geom_point(size = 6, pch = 21)+
+  theme_classic()+
+  #scale_fill_continuous(na.value = "transparent")+
+  scale_fill_viridis(na.value = "transparent")+
+  ggtitle(" Ca (ppb)")
+```
+```{r, fig.height=3, fig.width=6}
+data_long %>% filter(name == "Si_ppb" ) %>%
+  ggplot(aes(x = Dist, y = value/1000, color = Reach, pch = Date))+
+  geom_point()+
+  geom_line()+
+  ylab("Si (mg/L)")+
+  xlab("Distance upstream (m)")+
+  scale_color_discrete(name = "Stream", labels = c("North side", "South side"))+
+  theme_classic()
+```
