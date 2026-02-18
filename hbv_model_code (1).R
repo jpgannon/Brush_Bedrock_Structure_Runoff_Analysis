@@ -152,9 +152,9 @@ warmup_start <- min(df_all_full$date)
 warmup_end   <- warmup_start + warm_len
 
 calib_start  <- warmup_end + 1
-calib_end    <- calib_start + 120
+calib_end    <- max(df_all_full$date)
 
-valid_start  <- calib_end + 1
+valid_start  <- warmup_end + 1
 valid_end    <- max(df_all_full$date)
 
 # Define NSE function
@@ -226,7 +226,7 @@ optim_result <- DEoptim(
   upper = param_upper,
   control = DEoptim.control(
     NP = 50,          # population size
-    itermax = 100,    # max iterations
+    itermax = 1000,    # max iterations
     trace = 10,       # print progress every 10 iterations
     parallelType = 0  # no parallelization
   ),
