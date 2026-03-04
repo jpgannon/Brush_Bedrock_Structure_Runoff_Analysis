@@ -108,11 +108,69 @@ data_long %>% filter(name == "Si_ppb" ) %>%
 ```
 
 ```{r}
+
+
+# Create a data frame defining the three regions
+regions <- data.frame(
+  region = c("Evaporites", "Silicates", "Carbonates"),
+  xmin = c(0.12, 0.22, 20),
+  xmax = c(.28,   0.65,   80),
+  ymin = c(0.015, 0.18, 6),
+  ymax = c(0.05,  0.65,   12)
+)
+
 data_wide_molL |>
   ggplot(aes(x = Ca / Na, y = Mg / Na, color = Reach))+
   geom_point()+
-  scale_x_log10()+
-  scale_y_log10()+
-  theme_classic()
+  theme_classic()+
+   # Draw rectangular regions
+  geom_rect(data = regions,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = ymin, ymax = ymax,
+                fill = region),
+            alpha = 0.2,
+            color = "black",
+            inherit.aes = FALSE) +
+  # Add labels centered in each region
+  geom_text(data = regions,
+            aes(x = sqrt(xmin * xmax),
+                y = sqrt(ymin * ymax),
+                label = region),
+            size = 5,
+            inherit.aes = FALSE) +
+  # Log scales
+  scale_x_log10(name = "Ca/Na",
+                limits = c(0.1, 100)) +
+  scale_y_log10(name = "Mg/Na",
+                limits = c(0.01, 10)) 
+  
+
+
+ggplot() +
+  
+  # Draw rectangular regions
+  geom_rect(data = regions,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = ymin, ymax = ymax,
+                fill = region),
+            alpha = 0.2,
+            color = "black") +
+  
+  # Add labels centered in each region
+  geom_text(data = regions,
+            aes(x = sqrt(xmin * xmax),
+                y = sqrt(ymin * ymax),
+                label = region),
+            size = 5) +
+  
+  # Log scales
+  scale_x_log10(name = "Ca/Na",
+                limits = c(0.1, 100)) +
+  scale_y_log10(name = "Mg/Na",
+                limits = c(0.01, 10)) +
+  
+  # Clean theme
+  theme_classic() +
+  theme(legend.position = "none")
 ```
 
