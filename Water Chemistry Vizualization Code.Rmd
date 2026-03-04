@@ -12,10 +12,14 @@ cbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00",
 ```
 
 ```{r}
-data <- read_csv("MDH_Beast_AllChem_Apr22.csv") %>%
+data <- read_csv("data/MDH_Beast_AllChem_Apr22.csv") %>%
   filter(!Site %in% c("MSL", "MSTR1", "MSU", "RT0"))
 
-elements <- read_csv("Periodic Table of Elements.csv") %>% select(Symbol, AtomicMass)
+elements <- read_csv("data/Periodic Table of Elements.csv") %>% select(Symbol, AtomicMass)
+```
+
+
+```{r}
 ```
 
 ```{r}
@@ -27,7 +31,7 @@ data_long <- data %>% select(Date,Site, Reach, Dist, Na_ppb, Mg_ppb,
   left_join(elements, by = c("Element" = "Symbol")) %>%
   mutate(mol_L = (value / 1000000) / AtomicMass)
 
-data_wide_molL <- data_long %>% select(Site, Reach, Dist, Element, mol_L) %>%
+data_wide_molL <- data_long %>% select(Site, Date, Reach, Dist, Element, mol_L) %>%
   pivot_wider(values_from = mol_L, names_from = Element)
 
 data_long %>% 
@@ -102,3 +106,13 @@ data_long %>% filter(name == "Si_ppb" ) %>%
   scale_color_discrete(name = "Stream", labels = c("North side", "South side"))+
   theme_classic()
 ```
+
+```{r}
+data_wide_molL |>
+  ggplot(aes(x = Ca / Na, y = Mg / Na, color = Reach))+
+  geom_point()+
+  scale_x_log10()+
+  scale_y_log10()+
+  theme_classic()
+```
+
