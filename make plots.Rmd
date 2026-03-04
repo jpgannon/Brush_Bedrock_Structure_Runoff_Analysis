@@ -10,7 +10,7 @@ library(tidyverse)
 library(plotly)
 library(lubridate)
 
-Qdat <- read_csv("mcd_beast_Q.csv")
+Qdat <- read_csv("data/mcd_beast_Q.csv")
 ```
 
 ```{r}
