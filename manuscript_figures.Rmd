@@ -1,0 +1,291 @@
+---
+title: "Manuscript_figures"
+output: html_document
+date: "2026-03-25"
+---
+
+Data Setup
+```{r}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(lubridate)
+library(stringr)
+
+water_data <- read.csv("data/FieldChemData.csv")
+
+scarp_sites <- c("FSV1", "BST1", "MPL1", "SRT1", "JPY1", "LSR1")
+dip_sites   <- c("MCD1", "SCH1", "CHY1", "DFT1")
+
+water_data <- water_data |> 
+  mutate(
+    Mountain_Side = case_when(
+      Site %in% scarp_sites ~ "Scarp",
+      Site %in% dip_sites   ~ "Dip",
+      TRUE ~ NA_character_
+    ),
+    Mountain_Side = factor(
+      Mountain_Side,
+      levels = c("Scarp", "Dip")
+    ),
+    Date = as.Date(Date, format = "%m/%d/%Y")
+  )
+
+element_cols <- names(water_data)[
+  !names(water_data) %in% c("Site", "Date", "Mountain_Side")
+]
+
+water_data <- water_data |> 
+  mutate(across(
+    all_of(element_cols),
+    ~ as.numeric(gsub(",", "", as.character(.x)))
+  ))
+```
+
+Theme (from poster, might need to tweak for paper)
+```{r}
+poster_theme <- theme_minimal(base_size = 20) +
+  theme(
+    plot.title   = element_text(face = "bold", size = 26, hjust = 0.5),
+    axis.title   = element_text(size = 22),
+    axis.text    = element_text(size = 18),
+    legend.title = element_blank(),
+    legend.text  = element_text(size = 18),
+    strip.text   = element_text(face = "bold", size = 20),
+    panel.grid.minor = element_blank()
+  )
+
+poster_colors <- c(
+  "Scarp" = "#6B5A8E",  
+  "Dip"   = "#C76A2A"   
+)
+```
+
+Major Solute Concentrations
+```{r}
+poster_elements <- c("Ca", "Li", "Mg", "Si")
+
+poster_data <- water_data %>%
+  select(Mountain_Side, all_of(poster_elements)) %>%
+  pivot_longer(
+    cols = all_of(poster_elements),
+    names_to = "Element",
+    values_to = "Concentration"
+  )
+
+n_A <- poster_data |> 
+  group_by(Element, Mountain_Side) |> 
+  summarise(n = n(), .groups = "drop") |> 
+  mutate(label = paste0("n = ", n))
+
+fig_A <- ggplot(
+  poster_data,
+  aes(x = Mountain_Side, y = Concentration, fill = Mountain_Side)
+) +
+  geom_boxplot(width = 0.6, outlier.shape = NA, alpha = 0.8) +
+  geom_text(
+    data = n_A,
+    aes(x = Mountain_Side, y = -Inf, label = label),
+    inherit.aes = FALSE,
+    vjust = -0.4,
+    size = 5,
+    fontface = "bold"
+  ) +
+  facet_wrap(~ Element, scales = "free_y", nrow = 1) +
+  scale_fill_manual(values = poster_colors) +
+  labs(
+    title = "Major Solute Concentrations",
+    x = "",
+    y = "Concentration (ppb)"
+  ) +
+  poster_theme +
+  theme(plot.margin = margin(10, 10, 28, 10)) +
+  coord_cartesian(clip = "off")
+
+print(fig_A)
+
+ratio_data <- water_data |>
+  mutate(
+    Mg_Ca = if_else(is.finite(Mg) & is.finite(Ca) & Ca > 0, 
+        Mg / Ca, NA_real_),
+    Na_Ca = if_else(is.finite(Na) & is.finite(Ca) & Ca > 0, 
+        Na / Ca, NA_real_),
+    Mg_Na = if_else(is.finite(Mg) & is.finite(Na) & Na > 0,
+        Mg / Na, NA_real_),
+    Ca_Na = if_else(is.finite(Ca) & is.finite(Na) & Na > 0,
+        Ca / Na, NA_real_)
+  )
+
+x_labs_bulk <- c("Scarp" = "Scarp", "Dip" = "Dip")
+
+n_bulk <- ratio_df |> 
+  group_by(Ratio, Mountain_Side) |> 
+  summarise(n = n(), .groups = "drop") |> 
+  mutate(label = paste0("n = ", n))
+
+```
+Piper Plot
+```{r}
+cbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+piper_fig <- water_data %>%
+  ggtern(aes(x = Ca, y = Mg, z = Na, color = Mountain_Side)) +
+  geom_point(size = 4, alpha = 0.9) +
+  scale_color_manual(values = poster_colors) +
+  labs(
+    title = "Major Cation Composition",
+    T = "Ca",
+    L = "Mg",
+    R = "Na"
+  ) +
+  theme_minimal(base_size = 20) +
+  theme(
+    plot.title = element_text(size = 28, face = "bold", hjust = 0.5),
+    
+    tern.axis.title.T = element_text(size = 22, face = "bold"),
+    tern.axis.title.L = element_text(size = 22, face = "bold"),
+    tern.axis.title.R = element_text(size = 22, face = "bold"),
+    
+    tern.axis.text.T = element_text(size = 18),
+    tern.axis.text.L = element_text(size = 18),
+    tern.axis.text.R = element_text(size = 18),
+    
+    legend.title = element_blank(),
+    legend.text = element_text(size = 18)
+  )
+
+piper_fig
+ggsave("piper_fig.png", piper_fig, width = 10, height = 8, dpi = 300)
+```
+
+
+Bulk Ratios
+```{r}
+ratio_df <- ratio_data |>
+  select(Mountain_Side, Mg_Ca, Na_Ca) |>
+  pivot_longer(
+    cols = c(Mg_Ca, Na_Ca),
+    names_to = "Ratio",
+    values_to = "Ratio_Value"
+  ) |>
+  mutate(
+    Ratio = recode(Ratio,
+      Mg_Ca = "Mg / Ca",
+      Na_Ca = "Na / Ca"
+    )
+  ) |>
+  filter(is.finite(Ratio_Value), !is.na(Mountain_Side))
+
+n_under <- ratio_df |> 
+  group_by(Ratio, Side) |> 
+  summarise(n = n(), .groups = "drop") |> 
+  mutate(label = paste0("n = ", n))
+
+fig_ratios <- ggplot(ratio_df, aes(x = Side, y = Ratio_Value, fill = Side)) +
+  geom_boxplot(width = 0.6, outlier.shape = NA, alpha = 0.8) +
+  
+  geom_text(
+    data = n_under,
+    aes(x = Side, y = -Inf, label = label),
+    inherit.aes = FALSE,
+    vjust = -0.3,
+    size = 3.6
+  ) +
+  
+  facet_wrap(~Ratio, scales = "free_y", nrow = 1, labeller = labeller(Ratio = ratio_lab)) +
+  scale_x_discrete(labels = c("Scarp" = "Scarp", "Dip" = "Dip")) +
+  scale_fill_manual(values = poster_colors, name = "Mountain Side") +
+  
+  labs(
+    title = "Bulk Ratios",
+    x = "",
+    y = "Molar ratio"
+  ) +
+  poster_theme +
+  theme(
+    legend.position = "right",
+    plot.margin = margin(10, 10, 24, 10)  # extra bottom room for n labels
+  ) +
+  coord_cartesian(clip = "off")
+
+print(fig_ratios)
+ggsave("Fig_bulk_ratios.png", fig_ratios, width = 16, height = 6, dpi = 300)
+```
+
+Magnesium/Sodium x Calcium/Sodium
+```{r}
+ratio_scatter <- water_data |> 
+  mutate(
+    Mg_Na = if_else(is.finite(Mg) & is.finite(Na) & Na > 0, Mg / Na, NA_real_),
+    Ca_Na = if_else(is.finite(Ca) & is.finite(Na) & Na > 0, Ca / Na, NA_real_)
+  ) |> 
+  filter(
+    is.finite(Mg_Na),
+    is.finite(Ca_Na),
+    !is.na(Mountain_Side)
+  )
+
+fig_ratio_scatter <- ggplot(
+  ratio_scatter,
+  aes(x = Ca_Na, y = Mg_Na, color = Mountain_Side)
+) +
+  geom_point(size = 4, alpha = 0.8) +
+  scale_color_manual(values = poster_colors) +
+  labs(
+    title = "Mg/Na vs Ca/Na",
+    x = "Ca / Na",
+    y = "Mg / Na"
+  ) +
+  poster_theme
+
+print(fig_ratio_scatter)
+
+ggsave("Fig_MgNa_vs_CaNa.png", fig_ratio_scatter, width = 8, height = 6, dpi = 300)
+```
+Discharge Comparison
+```{r}
+q_file <- "data/q_all.csv"
+q_all  <- read_csv(q_file, show_col_types = FALSE)
+
+q_daily <- q_all |>
+  mutate(
+    date = as.Date(dt),
+    stream = str_trim(toupper(stream)),
+    stream = case_when(
+      stream == "BEAST" ~ "Scarp",
+      stream == "MDH"   ~ "Dip",
+      TRUE ~ NA_character_
+    )
+  ) |>
+  filter(!is.na(stream)) |>
+  group_by(date, stream) |>
+  summarise(Q_ls = mean(q.ls, na.rm = TRUE), .groups = "drop")
+
+shared_dates <- q_daily |>
+  count(date) |>
+  filter(n == 2) |>
+  pull(date)
+
+q_plot <- q_daily |>
+  filter(date %in% shared_dates) |>
+  mutate(stream = factor(stream, levels = c("Scarp", "Dip")))
+
+ggplot(q_plot, aes(x = date, y = Q_ls, color = stream)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(
+    values = c("Scarp" = "#6A3D9A", "Dip" = "#E66101"),
+    drop = FALSE
+  ) +
+  labs(
+    x = "Date",
+    y = "Discharge (L/s)",
+    color = NULL
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold")
+  )
+
+ggsave("shared_discharge_timeseries.png", width = 10, height = 5, dpi = 300)
+```
