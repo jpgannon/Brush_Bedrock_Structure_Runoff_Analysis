@@ -6,12 +6,8 @@ date: "2026-03-25"
 
 Data Setup
 ```{r}
-#library(dplyr)
-#library(readr)
-#library(ggplot2)
-#library(lubridate)
-#library(stringr)
 library(tidyverse)
+library(ggtern)
 
 water_data <- read.csv("data/FieldChemData.csv")
 
@@ -119,11 +115,6 @@ ratio_data <- water_data |>
 
 x_labs_bulk <- c("Scarp" = "Scarp", "Dip" = "Dip")
 
-n_bulk <- ratio_df |> 
-  group_by(Ratio, Mountain_Side) |> 
-  summarise(n = n(), .groups = "drop") |> 
-  mutate(label = paste0("n = ", n))
-
 ```
 Piper Plot
 ```{r}
@@ -178,25 +169,22 @@ ratio_df <- ratio_data |>
   filter(is.finite(Ratio_Value), !is.na(Mountain_Side))
 
 n_under <- ratio_df |> 
-  group_by(Ratio, Side) |> 
+  group_by(Ratio, Mountain_Side) |> 
   summarise(n = n(), .groups = "drop") |> 
   mutate(label = paste0("n = ", n))
 
-fig_ratios <- ggplot(ratio_df, aes(x = Side, y = Ratio_Value, fill = Side)) +
+fig_ratios <- ggplot(ratio_df, aes(x = Mountain_Side, y = Ratio_Value, fill = Mountain_Side)) +
   geom_boxplot(width = 0.6, outlier.shape = NA, alpha = 0.8) +
-  
   geom_text(
     data = n_under,
-    aes(x = Side, y = -Inf, label = label),
+    aes(x = Mountain_Side, y = -Inf, label = label),
     inherit.aes = FALSE,
     vjust = -0.3,
     size = 3.6
   ) +
-  
-  facet_wrap(~Ratio, scales = "free_y", nrow = 1, labeller = labeller(Ratio = ratio_lab)) +
+  facet_wrap(~Ratio, scales = "free_y", nrow = 1) +
   scale_x_discrete(labels = c("Scarp" = "Scarp", "Dip" = "Dip")) +
   scale_fill_manual(values = poster_colors, name = "Mountain Side") +
-  
   labs(
     title = "Bulk Ratios",
     x = "",
@@ -205,7 +193,7 @@ fig_ratios <- ggplot(ratio_df, aes(x = Side, y = Ratio_Value, fill = Side)) +
   poster_theme +
   theme(
     legend.position = "right",
-    plot.margin = margin(10, 10, 24, 10)  # extra bottom room for n labels
+    plot.margin = margin(10, 10, 24, 10)
   ) +
   coord_cartesian(clip = "off")
 
