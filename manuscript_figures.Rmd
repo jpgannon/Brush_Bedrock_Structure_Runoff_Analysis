@@ -118,12 +118,10 @@ x_labs_bulk <- c("Scarp" = "Scarp", "Dip" = "Dip")
 ```
 Piper Plot
 ```{r}
-cbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-
 piper_fig <- water_data %>%
   ggtern(aes(x = Ca, y = Mg, z = Na, color = Mountain_Side)) +
   geom_point(size = 4, alpha = 0.9) +
-  scale_color_manual(values = poster_colors) +
+  scale_colour_manual(values = poster_colors, name = "Streams") +
   labs(
     title = "Major Cation Composition",
     T = "Ca",
@@ -233,48 +231,129 @@ ggsave("Fig_MgNa_vs_CaNa.png", fig_ratio_scatter, width = 8, height = 6, dpi = 3
 ```
 Discharge Comparison
 ```{r}
-q_file <- "data/q_all.csv"
-q_all  <- read_csv(q_file, show_col_types = FALSE)
+Qdat <- read_csv("data/mcd_beast_Q.csv")
 
-q_daily <- q_all |>
-  mutate(
-    date = as.Date(dt),
-    stream = str_trim(toupper(stream)),
-    stream = case_when(
-      stream == "BEAST" ~ "Scarp",
-      stream == "MDH"   ~ "Dip",
-      TRUE ~ NA_character_
-    )
-  ) |>
-  filter(!is.na(stream)) |>
-  group_by(date, stream) |>
-  summarise(Q_ls = mean(q.ls, na.rm = TRUE), .groups = "drop")
-
-shared_dates <- q_daily |>
-  count(date) |>
-  filter(n == 2) |>
-  pull(date)
-
-q_plot <- q_daily |>
-  filter(date %in% shared_dates) |>
-  mutate(stream = factor(stream, levels = c("Scarp", "Dip")))
-
-ggplot(q_plot, aes(x = date, y = Q_ls, color = stream)) +
-  geom_line(linewidth = 1) +
-  scale_color_manual(
-    values = c("Scarp" = "#6A3D9A", "Dip" = "#E66101"),
-    drop = FALSE
-  ) +
-  labs(
-    x = "Date",
-    y = "Discharge (L/s)",
-    color = NULL
-  ) +
-  theme_minimal(base_size = 13) +
-  theme(
-    panel.grid.minor = element_blank(),
-    plot.title = element_text(face = "bold")
-  )
-
-ggsave("shared_discharge_timeseries.png", width = 10, height = 5, dpi = 300)
+Qdat %>%filter(datetime > mdy("08-01-20") & datetime < mdy("09-01-20"))%>%
+  ggplot()+
+  geom_line(aes(datetime, Qmmd_mcd, color = "Dip")) +
+  geom_line(aes(datetime, Qmmd_beast, color = "Scarp"))+
+  theme_classic()+
+  #scale_y_log10()+
+  scale_colour_manual(values = poster_colors)+
+  ylab("Discharge (mm/day)")+
+  xlab(element_blank())
+  
+Qdat %>%filter(datetime > mdy("10-25-20") & datetime < mdy("12-01-20"))%>%
+  ggplot()+
+  geom_line(aes(datetime, Qmmd_mcd, color = "Dip")) +
+  geom_line(aes(datetime, Qmmd_beast, color = "Scarp"))+
+  theme_classic()+
+  #scale_y_log10()+
+  scale_colour_manual(values = poster_colors)+
+  ylab("Discharge (mm/day)")+
+  xlab(element_blank())
 ```
+Conc. Plots
+```{r}
+data <- read_csv("data/MDH_Beast_AllChem_Apr22.csv") %>%
+  filter(!Site %in% c("MSL", "MSTR1", "MSU", "RT0"))
+
+elements <- read_csv("data/Periodic Table of Elements.csv") %>% select(Symbol, AtomicMass)
+
+data_long <- data %>% select(Date,Site, Reach, Dist, Na_ppb, Mg_ppb, 
+                             Al_ppb, Si_ppb, K_ppb, Ca_ppb, Fe_ppb,
+                             S_ppm_as_SO4) %>%
+  pivot_longer(Na_ppb:S_ppm_as_SO4) %>%
+  mutate(Element = substr(name, 1, nchar(name) - 4)) %>%
+  left_join(elements, by = c("Element" = "Symbol")) %>%
+  mutate(mol_L = (value / 1000000) / AtomicMass)
+
+data_long %>% filter(name %in% c("Ca_ppb","K_ppb","Mg_ppb","Si_ppb","Na_ppb" ))%>%
+  ggplot(aes(x = Dist, y = value, color = Reach, pch = Date))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(vars(name), scale = "free")+
+  scale_colour_manual(
+  values = c("Beast" = "#6B5A8E", "MDH" = "#C76A2A"),
+  name = "Streams"
+) +
+  theme_classic()
+```
+
+Three Regions Plot
+```{r}
+data_wide_molL <- data_long %>% select(Site, Date, Reach, Dist, Element, mol_L) %>%
+  pivot_wider(values_from = mol_L, names_from = Element)
+
+# Create a data frame defining the three regions
+regions <- data.frame(
+  region = c("Evaporites", "Silicates", "Carbonates"),
+  xmin = c(0.12, 0.22, 20),
+  xmax = c(.28,   0.65,   80),
+  ymin = c(0.015, 0.18, 6),
+  ymax = c(0.05,  0.65,   10)
+)
+
+data_wide_molL <- data_wide_molL %>%
+  mutate(Reach = recode(Reach,
+    "Beast" = "Scarp",
+    "MDH"   = "Dip"
+  ))
+
+data_wide_molL |>
+  ggplot(aes(x = Ca / Na, y = Mg / Na, color = Reach))+
+  geom_point()+
+  theme_classic()+
+   # Draw rectangular regions
+  geom_rect(data = regions,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = ymin, ymax = ymax,
+                fill = region),
+            alpha = 0.2,
+            color = "black",
+            inherit.aes = FALSE) +
+  # Add labels centered in each region
+  geom_text(data = regions,
+            aes(x = sqrt(xmin * xmax),
+                y = sqrt(ymin * ymax),
+                label = region),
+            size = 5,
+            inherit.aes = FALSE) +
+  scale_colour_manual(values = poster_colors, name = "Streams") +
+  # Log scales
+  scale_x_log10(name = "Ca/Na",
+                limits = c(0.1, 100)) +
+  scale_y_log10(name = "Mg/Na",
+                limits = c(0.01, 10)) 
+  
+
+
+ggplot() +
+  
+  # Draw rectangular regions
+  geom_rect(data = regions,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = ymin, ymax = ymax,
+                fill = region),
+            alpha = 0.2,
+            color = "black") +
+  
+  # Add labels centered in each region
+  geom_text(data = regions,
+            aes(x = sqrt(xmin * xmax),
+                y = sqrt(ymin * ymax),
+                label = region),
+            size = 5) +
+  
+  
+  # Log scales
+  scale_x_log10(name = "Ca/Na",
+                limits = c(0.1, 100)) +
+  scale_y_log10(name = "Mg/Na",
+                limits = c(0.01, 10)) +
+  
+  # Clean theme
+  theme_classic() +
+  theme(legend.position = "none")
+```
+
